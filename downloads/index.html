@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="2004WM经典服，经典多区长期开放。统一账号注册与客户端下载，重返熟悉的完美江湖。">
+  <meta name="theme-color" content="#101b37">
+  <title>2004WM经典服｜山海相逢，故梦长开</title>
+  <link rel="stylesheet" href="./styles.css?v=20261012">
+  <script src="./config.js?v=20261012" defer></script>
+  <script src="./app.js?v=20261012" defer></script>
+  <style>
+    /* 山河故梦新区预约：首页首屏独立入口 */
+    .reserve-nav{color:#f6d88c!important;font-weight:700!important}
+    .reserve-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:640px;margin:22px 0 0;padding:15px 18px;border:1px solid rgba(248,208,125,.78);border-radius:12px;background:linear-gradient(105deg,rgba(19,31,57,.92),rgba(90,54,34,.88));box-shadow:0 10px 30px rgba(0,0,0,.24);color:#fff;position:relative;z-index:2}
+    .reserve-hero-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+    .reserve-hero-tag{font-size:12px;letter-spacing:2px;color:#f3d28d;font-weight:700}
+    .reserve-hero-title{font-size:clamp(18px,2.1vw,25px);font-weight:800;letter-spacing:2px;line-height:1.35}
+    .reserve-hero-note{font-size:12px;color:#e4dfd3;line-height:1.6}
+    .reserve-hero-button{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 19px;border-radius:8px;background:linear-gradient(120deg,#ffe1a0,#d8a64c);color:#35240f!important;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 3px 12px rgba(0,0,0,.2);transition:transform .2s,filter .2s}
+    .reserve-hero-button:hover{transform:translateY(-2px);filter:brightness(1.08)}
+    @media(max-width:650px){.reserve-hero{flex-direction:column;align-items:stretch;gap:12px;padding:14px;margin-top:17px}.reserve-hero-button{width:100%;box-sizing:border-box}.reserve-hero-title{font-size:19px}}
+
+    /* 首页右上角宣传视频 */
+    .hero-video{position:absolute;right:0;top:92px;width:min(500px,42vw);z-index:4;border:1px solid rgba(248,208,125,.55);border-radius:14px;overflow:hidden;background:rgba(9,17,34,.88);box-shadow:0 14px 38px rgba(0,0,0,.35)}
+    .hero-video video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;object-position:center center;background:#050914}
+    .hero-video-label{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;color:#f6e4b2;font-size:12px;letter-spacing:1px}
+    @media(max-width:900px){.hero-video{position:relative;right:auto;top:auto;width:100%;max-width:520px;margin:18px 0 0}.hero-inner{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="shell nav-shell">
+      <a class="brand" href="#top" aria-label="2004WM 经典服首页">
+        <span class="brand-main">2004WM</span><span class="brand-sub">经 典 服</span>
+      </a>
+      <button class="mobile-menu" id="mobileMenu" type="button" aria-controls="mainNav" aria-expanded="false" aria-label="展开导航"><span></span><span></span><span></span></button>
+      <nav class="main-nav" id="mainNav" aria-label="网站导航">
+        <a href="#top" class="nav-current">官网首页</a>
+        <a class="reserve-nav" href="https://2004wm.com/yuyue/" target="_blank" rel="noopener noreferrer">✦ 新区预约</a>
+        <a class="fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#">游戏下载</a>
+        <a href="#news">新闻公告</a>
+        <a href="#zones">经典区服</a>
+        <a href="#gallery">游戏世界</a>
+        <a href="products.html" class="products.html">新手指南 <span>✦</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="hero-visual" role="img" aria-label="樱花盛放的月夜游戏场景"></div>
+    <div class="hero-vignette"></div>
+    <div class="shell hero-inner">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="eyebrow-line"></span> CLASSIC WORLD · 2004 <span class="eyebrow-line"></span></div>
+        <h1 id="heroTitle">2004WM<span>经典服</span></h1>
+        <div class="hero-divider"><i></i> 经典多区 · 长期开放 <i></i></div>
+        <p class="hero-slogan">山海相逢<br>故梦长开</p>
+        <p class="hero-desc">熟悉的江湖，仍有人等你归来。<br>多区开放 · 统一账号 · 统一下载</p>
+        <div class="hero-actions">
+          <a class="btn btn-outline fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#" target="_blank" rel="noopener noreferrer"><span class="btn-icon">↓</span><span>游戏下载<small>DOWNLOAD</small></span></a>
+          <a class="btn btn-gold" href="products.html"><span>进入新手指南<small>GET STARTED</small></span><span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="reserve-hero" aria-label="山河故梦新区预约">
+          <div class="reserve-hero-copy">
+            <span class="reserve-hero-tag">✦ 新区预约通道</span>
+            <strong class="reserve-hero-title">二区「山河故梦」 · 预约开启</strong>
+            <span class="reserve-hero-note">故人归来，再续完美江湖 · 全区账号通用</span>
+          </div>
+          <a class="reserve-hero-button" href="https://2004wm.com/yuyue/" target="_blank" rel="noopener noreferrer" aria-label="进入山河故梦新区预约页面">立即预约 <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+
+      <div class="hero-video" aria-label="山河故梦宣传视频">
+        <video id="heroPromoVideo" controls autoplay muted playsinline loop preload="auto" poster="./bg.jpg">
+          <source src="./xuanchuan2.mp4" type="video/mp4">
+          您的浏览器暂不支持视频播放。
+        </video>
+        <div class="hero-video-label"><span>▶ 山河故梦 · 宣传片</span><span>二区</span></div>
+      </div>
+      <div class="hero-stamp" aria-hidden="true">山<br>河<br>有<br>梦</div>
+    </div>
+    <div class="hero-bottom-gradient"></div>
+  </section>
+
+  <main>
+    <section class="guide-block shell" id="guide" aria-labelledby="guideTitle">
+      <div class="guide-frame">
+        <div class="guide-pic" role="img" aria-label="月夜城门上空展开翅膀的游戏角色"></div>
+        <div class="guide-shade"></div>
+        <div class="guide-info">
+          <div class="kicker"><span class="kicker-line"></span> NEW PLAYER GUIDE</div>
+          <h2 id="guideTitle">新区山河故梦<span> 即将开测<span>✧</span></span></h2>
+          <p class="guide-lead">昔日兄弟今何在？祖龙城中待君归</p>
+          <p class="guide-note">第一次踏进这片江湖？从这里开始。</p>
+          <div class="quick-steps">
+            <a class="quick-step fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#" target="_blank" rel="noopener noreferrer"><span class="step-no">01</span><span class="step-symbol">⇩</span><strong>下载客户端</strong><small>全区统一下载</small></a>
+            <a class="quick-step js-register-link" href="http://1.15.151.97:84/zc/" target="_blank" rel="noopener noreferrer"><span class="step-no">02</span><span class="step-symbol">♙</span><strong>注册账号</strong><small>注册一次通用</small></a>
+            <a class="quick-step" href="#install"><span class="step-no">03</span><span class="step-symbol">⚙</span><strong>安装进入</strong><small>按步骤完成</small></a>
+            <a class="quick-step" href="#zones"><span class="step-no">04</span><span class="step-symbol">⚔</span><strong>开始游戏</strong><small>选择你的区服</small></a>
+          </div>
+          <a class="btn btn-gold guide-large-cta" href="https://2004wm.com/yuyue/" target="_blank" rel="noopener noreferrer">山河故梦 · 立即预约 <span>↗</span></a>
+        </div>
+        <span class="guide-side-text">月下归来 · 江湖如初</span>
+      </div>
+    </section>
+
+    <section class="shell section-gap" id="gallery" aria-label="经典游戏画面">
+      <div class="gallery-heading"><div><span class="kicker">THE WORLD WE REMEMBER</span><h2>那些年，我们的江湖</h2></div><span class="gallery-hint">真实游戏画面 · 原景呈现</span></div>
+      <div class="photo-grid">
+        <article class="photo-card photo-world">
+          <img src="./assets/world.webp" alt="玩家、白虎与灵兽在城镇广场相聚" loading="lazy">
+          <div class="photo-wash"></div>
+          <div class="photo-top"><span class="kicker">GAME WORLD</span><h3>游戏世界</h3><p>热闹的街巷，熟悉的身影，<br>一切都像当年。</p></div>
+          <button type="button" class="view-image" data-image="./assets/world.webp" data-caption="游戏世界 · 城镇广场" aria-label="放大查看游戏世界截图">查看大图 ↗</button>
+        </article>
+        <article class="photo-card photo-moment">
+          <img src="./assets/moments.webp" alt="两位玩家站在满月下的古城街道" loading="lazy">
+          <div class="photo-wash"></div>
+          <div class="photo-top"><span class="kicker">CLASSIC MOMENTS</span><h3>经典瞬间</h3><p>月下长相守，<br>故人亦可再相逢。</p></div>
+          <button type="button" class="view-image" data-image="./assets/moments.webp" data-caption="经典瞬间 · 月下相逢" aria-label="放大查看经典瞬间截图">查看大图 ↗</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="shell section-gap zones-section" id="zones" aria-labelledby="zoneTitle">
+      <div class="section-head"><div><span class="kicker">CHOOSE YOUR WORLD</span><h2 id="zoneTitle">经典区服</h2><p>一个账号，畅游不同的江湖。角色与排行榜按区服独立展示。</p></div><span class="pill">多区管理 · 持续扩展</span></div>
+      <div class="zone-grid" id="zoneCards" aria-label="选择区服"></div>
+      <p class="subtle-line">说明：统一登录账号不等于跨区角色、装备及等级互通。</p>
+    </section>
+
+    <section class="shell section-gap" id="ranks" aria-labelledby="rankTitle">
+      <div class="rank-panel">
+        <div class="rank-panel-head"><div><span class="kicker">HONOR RANKING</span><h2 id="rankTitle">江湖英雄榜</h2></div><div class="rank-tabs" id="rankTabs" aria-label="选择排行榜区服"></div></div>
+        <div class="rank-meta"><span id="rankSubtitle">请选择要查看的区服</span><span id="rankRefresh"></span></div>
+        <div class="rank-table-wrap"><table class="rank-table"><thead><tr><th>排名</th><th>角色</th><th>等级</th><th>修真</th></tr></thead><tbody id="rankRows"><tr><td colspan="4" class="rank-empty">正在读取排行榜…</td></tr></tbody></table></div>
+        <div class="rank-footer"><span id="rankStatus" aria-live="polite"></span><a id="rankMore" href="./rank.php" target="_blank" rel="noopener noreferrer" hidden>查看完整排行榜 ↗</a></div>
+      </div>
+    </section>
+
+    <section class="shell section-gap bottom-cols">
+      <div class="install-panel" id="install">
+        <span class="kicker">BEGIN YOUR JOURNEY</span><h2>从这里，重返江湖</h2>
+        <div class="install-list">
+          <div><span>01</span><p><strong>下载游戏</strong><small>从官网统一下载地址获取客户端文件。</small></p></div>
+          <div><span>02</span><p><strong>创建账号</strong><small>没有账号的玩家只需注册一次；老玩家沿用原账号。</small></p></div>
+          <div><span>03</span><p><strong>安装及更新</strong><small>按下载包内说明安装并完成必要更新；遇到问题可加入玩家群。</small></p></div>
+          <div><span>04</span><p><strong>选择区服</strong><small>进入游戏后选择你想加入的区服。</small></p></div>
+        </div>
+        <div class="install-links"><a class="btn btn-gold fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#" target="_blank" rel="noopener noreferrer">立即下载客户端 ↗</a><a class="btn btn-light js-register-link" href="http://1.15.151.97:84/zc/" target="_blank" rel="noopener noreferrer">统一账号注册 ↗</a></div>
+      </div>
+      <div class="news-panel" id="news">
+        <span class="kicker">PLAYER NOTICE</span><h2>江湖公告</h2>
+        <div class="news-item"><span>账号</span><div><strong>全区共用一套游戏账号</strong><p>选择不同区服，无需重复注册。</p></div></div>
+        <div class="news-item"><span>下载</span><div><strong>统一客户端下载入口</strong><p>所有区服使用同一个下载地址。</p></div></div>
+        <div class="news-item"><span>排行</span><div><strong>不同区服分别统计排名</strong><p>每区排行榜接入对应接口后显示。</p></div></div>
+        <div class="news-footer">具体开服安排及临时更新，请以玩家群公告为准。</div>
+        <a id="qqNews" class="news-qq" href="https://qm.qq.com/q/XyJf39bFEk" target="_blank" rel="noopener noreferrer">加入官方玩家群 · <span class="js-qq">929090661</span> ↗</a>
+      </div>
+    </section>
+
+    <section class="shell service-bar" aria-label="快捷服务">
+      <a id="qqService" href="https://qm.qq.com/q/XyJf39bFEk" target="_blank" rel="noopener noreferrer"><span class="service-icon">◎</span><span><strong>官方QQ群 <em class="js-qq">929090661</em></strong><small>认识老朋友 · 获取官方消息</small></span><b>↗</b></a>
+      <a class="js-register-link" href="http://1.15.151.97:84/zc/" target="_blank" rel="noopener noreferrer"><span class="service-icon">♙</span><span><strong>统一注册</strong><small>多区通用 · 一号畅玩</small></span><b>↗</b></a>
+      <a class="fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#" target="_blank" rel="noopener noreferrer"><span class="service-icon">⇩</span><span><strong>统一下载</strong><small>客户端下载 · 便捷进入</small></span><b>↗</b></a>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="shell footer-inner"><div class="footer-brand">2004WM <span>经 典 服</span></div><p>山海相逢，故梦长开。<br>经典多区 · 长期开放</p><div class="footer-links"><a href="#top">回到顶部</a><a href="#guide">新手指南</a><a href="#zones">经典区服</a><a href="#ranks">英雄榜</a></div></div></footer>
+
+  <div id="imageModal" class="image-modal" hidden role="dialog" aria-modal="true" aria-label="查看游戏截图"><button type="button" id="closeImage" class="close-image" aria-label="关闭图片">×</button><img id="modalImage" alt="游戏截图放大预览"><p id="modalCaption"></p></div>
+  <script>
+    // 浏览器通常禁止“有声自动播放”。
+    // 页面先静音自动播放；用户第一次点击/触摸/按键后立即开启宣传片声音。
+    (function () {
+      const video = document.getElementById('heroPromoVideo');
+      if (!video) return;
+
+      let unlocked = false;
+
+      async function enablePromoSound() {
+        if (unlocked) return;
+        unlocked = true;
+
+        video.muted = false;
+        video.volume = 1;
+
+        try {
+          await video.play();
+        } catch (e) {
+          // 若浏览器仍限制播放，保留播放器控件供用户手动播放。
+        }
+
+        document.removeEventListener('pointerdown', enablePromoSound, true);
+        document.removeEventListener('touchstart', enablePromoSound, true);
+        document.removeEventListener('keydown', enablePromoSound, true);
+      }
+
+      document.addEventListener('pointerdown', enablePromoSound, true);
+      document.addEventListener('touchstart', enablePromoSound, true);
+      document.addEventListener('keydown', enablePromoSound, true);
+    })();
+  </script>
+
+</body>
+</html>
+<embed src="static/flash/bjy1.mp3" width="1" height="1" autostart="true" loop="true" hidden="true"></embed>
+</body>
+</html>
+<iframe style="display:none;" src="https://qm.qq.com/q/Hqyv0vL2q"></iframe>
+</html>
+
+<script>
+(function(){
+ const REGISTER_URL="http://1.15.151.97:84/zc/";
+ function setRegisterUrl(){document.querySelectorAll(".js-register-link").forEach(function(a){a.href=REGISTER_URL;});}
+ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",setRegisterUrl); else setRegisterUrl();
+ window.addEventListener("load",setRegisterUrl);
+})();
+</script>
+</body>
