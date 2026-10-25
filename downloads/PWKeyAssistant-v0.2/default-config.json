@@ -1,0 +1,35 @@
+﻿{
+  "Version": 2,
+  "Actions": [
+    {
+      "Enabled": true,
+      "Name": "切换目标（游戏TAB键）",
+      "Key": "TAB",
+      "IntervalMs": 6000
+    },
+    {
+      "Enabled": true,
+      "Name": "攻击或技能1（请先绑定到游戏1键）",
+      "Key": "1",
+      "IntervalMs": 1000
+    },
+    {
+      "Enabled": false,
+      "Name": "技能2",
+      "Key": "2",
+      "IntervalMs": 3000
+    },
+    {
+      "Enabled": false,
+      "Name": "技能3",
+      "Key": "3",
+      "IntervalMs": 6000
+    },
+    {
+      "Enabled": false,
+      "Name": "拾取（请先把游戏拾取绑定到F1）",
+      "Key": "F1",
+      "IntervalMs": 2000
+    }
+  ]
+}
