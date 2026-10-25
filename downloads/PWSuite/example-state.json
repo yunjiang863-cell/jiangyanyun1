@@ -1,0 +1,75 @@
+﻿{
+  "Connected": true,
+  "Role": {
+    "Id": "demo-role",
+    "Name": "测试角色",
+    "Hp": 700,
+    "MaxHp": 1000,
+    "Mp": 20,
+    "MaxMp": 100,
+    "X": 0,
+    "Y": 100,
+    "Z": 0
+  },
+  "Dead": false,
+  "BagFull": false,
+  "PetSummoned": false,
+  "Stunned": false,
+  "RedCharmNeedsReplace": false,
+  "BlueCharmNeedsReplace": false,
+  "ReturnToCenterNeeded": false,
+  "TargetId": "mob-1",
+  "Mobs": [
+    {
+      "Id": "mob-1",
+      "Name": "白眼狼",
+      "Level": 10,
+      "Alive": true,
+      "X": 5,
+      "Y": 100,
+      "Z": 0
+    },
+    {
+      "Id": "mob-2",
+      "Name": "中山狼",
+      "Level": 12,
+      "Alive": true,
+      "X": 10,
+      "Y": 100,
+      "Z": 0
+    }
+  ],
+  "GroundItems": [
+    {
+      "Id": "item-1",
+      "Name": "测试材料",
+      "IsCoin": false,
+      "X": 1,
+      "Y": 100,
+      "Z": 0
+    },
+    {
+      "Id": "coin-1",
+      "Name": "金币",
+      "IsCoin": true,
+      "X": 1,
+      "Y": 100,
+      "Z": 0
+    }
+  ],
+  "ReadyActions": [
+    "多寿饺子",
+    "多福饺子",
+    "普通攻击"
+  ],
+  "ReadySkills": [
+    "羽箭",
+    "龙卷风",
+    "聚神符",
+    "仙守符",
+    "灵助符"
+  ],
+  "ActiveStatuses": [
+    "坚甲符"
+  ]
+}
