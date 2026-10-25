@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $r=$PSScriptRoot
 foreach($name in @('Assistant.ps1','Core.ps1')){$tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $r $name),[ref]$tokens,[ref]$errors);if($errors.Count){throw ($errors|Out-String)}}
 . "$r/Core.ps1"
@@ -20,3 +20,8 @@ Add-Type -Path "$r/Native.cs"
 $expected=if([IntPtr]::Size -eq 8){40}else{28}
 Assert ([PWKeyNative]::InputSize() -eq $expected) 'INPUT structure ABI size mismatch'
 'PASS: PowerShell syntax; C# compile; INPUT ABI size; key whitelist; emergency key reserved; disabled actions; scheduler priority/fairness; no catch-up bursts; invalid interval rejection. No native Windows APIs executed.'
+
+Assert ((Get-ActivationDecision $false 10 30000) -eq 'Waiting') 'Background window activated'
+Assert ((Get-ActivationDecision $true 10 30000) -eq 'Ready') 'Focused window did not activate'
+Assert ((Get-ActivationDecision $true 30000 30000) -eq 'Timeout') 'Expired start request activated'
+'PASS: manual foreground activation; pending timeout.'
