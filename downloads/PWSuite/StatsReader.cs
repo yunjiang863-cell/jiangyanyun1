@@ -4,7 +4,7 @@ public sealed class PWStatsReader:IDisposable {
  [DllImport("kernel32.dll",SetLastError=true)]static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
  [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr h);
  [DllImport("kernel32.dll")]static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
- [DllImport("kernel32.dll")]static extern bool ReadProcessMemory(IntPtr h,IntPtr address,byte[] bytes,UIntPtr count,out UIntPtr read);
+ [DllImport("kernel32.dll",SetLastError=true)]static extern bool ReadProcessMemory(IntPtr h,IntPtr address,byte[] bytes,UIntPtr count,out UIntPtr read);
  IntPtr handle=IntPtr.Zero;long ticks,pointer,nameAddress,hpA,mpA,hpB,mpB;string name;bool disposed;
  public static void ValidateLayout(long pointer,long nameAddress,long[] hp,long[] mp){
   if(hp==null||mp==null||hp.Length!=2||mp.Length!=2)throw new ArgumentException("当前仅支持两组生命/真气候选。");
@@ -42,19 +42,31 @@ public sealed class PWAutoRoleJob {
  public PWAutoRoleProgress GetProgress(){lock(Sync){return new PWAutoRoleProgress{State=Data.State,Error=Data.Error,BytesRead=Data.BytesRead,Result=Data.Result};}}
 }
 public static class PWAutoRoleConnector {
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool QueryFullProcessImageName(IntPtr handle,uint flags,StringBuilder path,ref int size);
  [StructLayout(LayoutKind.Sequential)]struct MBI{public IntPtr Base,AllocationBase;public uint AllocationProtect;public UIntPtr Size;public uint State,Protect,Type;}
  [DllImport("kernel32.dll",SetLastError=true)]static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
  [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr h);
  [DllImport("kernel32.dll")]static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
  [DllImport("kernel32.dll")]static extern UIntPtr VirtualQueryEx(IntPtr h,IntPtr address,out MBI info,UIntPtr size);
- [DllImport("kernel32.dll")]static extern bool ReadProcessMemory(IntPtr h,IntPtr address,byte[] bytes,UIntPtr size,out UIntPtr read);
+ [DllImport("kernel32.dll",SetLastError=true)]static extern bool ReadProcessMemory(IntPtr h,IntPtr address,byte[] bytes,UIntPtr size,out UIntPtr read);
  const string SupportedHash="2f7f098806d965fea21d4206a201868d3e897b3dfd91c97caf93b28e91df1b3f";
  // Client-version profile derived from supplied reports; no private names, PIDs or heap addresses.
  const long NameRootRva=0x642230;const int HpRelative=-424,MpRelative=-420,MaxHpRelative=-360,MaxMpRelative=-356;
+ public static long PreferredBase(string fileName){
+  using(BinaryReader r=new BinaryReader(File.OpenRead(fileName))){
+   if(r.BaseStream.Length<256||r.ReadUInt16()!=0x5a4d)throw new InvalidOperationException("游戏PE文件头无效。");
+   r.BaseStream.Position=0x3c;int pe=r.ReadInt32();if(pe<64||pe>r.BaseStream.Length-128)throw new InvalidOperationException("PE头位置无效。");
+   r.BaseStream.Position=pe;if(r.ReadUInt32()!=0x4550||r.ReadUInt16()!=0x14c)throw new InvalidOperationException("当前仅支持32位客户端。");
+   long opt=pe+24;r.BaseStream.Position=opt;if(r.ReadUInt16()!=0x10b)throw new InvalidOperationException("客户端不是PE32格式。");
+   r.BaseStream.Position=opt+28;long imageBase=r.ReadUInt32();r.BaseStream.Position=opt+70;ushort flags=r.ReadUInt16();
+   if((flags&0x40)!=0)throw new InvalidOperationException("该客户端开启了地址随机化，需要独立适配，未猜测加载地址。");
+   if(imageBase<65536||imageBase>=0x7fff0000L)throw new InvalidOperationException("客户端映像地址无效。");return imageBase;
+  }
+ }
  public static bool PlausibleStats(int hp,int mp,int maxHp,int maxMp){return hp>=0&&mp>=0&&maxHp>0&&maxMp>0&&maxHp<=1000000000&&maxMp<=1000000000&&hp<=maxHp&&mp<=maxMp;}
  public static PWAutoRoleJob Start(int pid){if(pid<=0)throw new ArgumentException("游戏进程无效。");PWAutoRoleJob job=new PWAutoRoleJob();Thread t=new Thread(delegate(){Locate(job,pid);});t.IsBackground=true;t.Start();return job;}
  static byte[] Read(IntPtr h,long a,int size,out int got){byte[] b=new byte[size];UIntPtr n;ReadProcessMemory(h,new IntPtr(a),b,new UIntPtr((uint)size),out n);got=(int)Math.Min((ulong)size,n.ToUInt64());return b;}
- static int ReadInt(IntPtr h,long a){int n;byte[] b=Read(h,a,4,out n);if(n!=4)throw new InvalidOperationException("角色字段无法读取。");return BitConverter.ToInt32(b,0);}
+ static int ReadInt(IntPtr h,long a){int n;byte[] b=Read(h,a,4,out n);if(n!=4)throw new InvalidOperationException("角色字段无法读取：0x"+a.ToString("X")+"，需要4字节，实际"+n+"，Windows错误"+Marshal.GetLastWin32Error()+"。");return BitConverter.ToInt32(b,0);}
  static string ReadName(IntPtr h,long a){StringBuilder s=new StringBuilder();for(int i=0;i<=32;i++){int n;byte[] b=Read(h,a+i*2,2,out n);if(n!=2)throw new InvalidOperationException("名字无法读取。");char c=(char)BitConverter.ToUInt16(b,0);if(c==0){if(s.Length<2)throw new InvalidOperationException("请先进入游戏角色。");return s.ToString();}if(Char.IsControl(c))throw new InvalidOperationException("名字字段与适配版本不符。");s.Append(c);}throw new InvalidOperationException("名字字段未通过长度校验。");}
  public static int[] FindName(byte[] b,int n,byte[] p){int[] skip=new int[256];for(int i=0;i<256;i++)skip[i]=p.Length;for(int i=0;i<p.Length-1;i++)skip[p[i]]=p.Length-1-i;List<int> hits=new List<int>();for(int i=0;i<=n-p.Length;){int j=p.Length-1;while(j>=0&&b[i+j]==p[j])j--;if(j<0){hits.Add(i);i++;}else i+=skip[b[i+p.Length-1]];}return hits.ToArray();}
  static void Walk(IntPtr handle,PWAutoRoleJob job,Action<long,byte[],int> visit){long cursor=65536,total=0;Stopwatch clock=Stopwatch.StartNew();while(cursor<0x7fff0000L){
@@ -66,9 +78,16 @@ public static class PWAutoRoleConnector {
   }cursor=end;
  }}
  static void Locate(PWAutoRoleJob job,int pid){IntPtr handle=IntPtr.Zero;try{
-  long ticks,imageBase;string hash;using(Process p=Process.GetProcessById(pid)){if(!String.Equals(p.ProcessName,"elementclient",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("只支持elementclient.exe。");ticks=p.StartTime.ToUniversalTime().Ticks;imageBase=p.MainModule.BaseAddress.ToInt64();using(FileStream f=File.OpenRead(p.MainModule.FileName))using(SHA256 sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(f)).Replace("-","").ToLowerInvariant();}
+  lock(job.Sync)job.Data.State="打开只读连接";
+  handle=OpenProcess(0x0410,false,pid);if(handle==IntPtr.Zero)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"无法只读连接游戏。");
+  long c,e,k,u;if(!GetProcessTimes(handle,out c,out e,out k,out u)||e!=0)throw new InvalidOperationException("游戏进程已退出或无法读取启动时间。");long ticks=DateTime.FromFileTimeUtc(c).Ticks;
+  lock(job.Sync)job.Data.State="校验游戏版本";
+  StringBuilder path=new StringBuilder(32768);int capacity=path.Capacity;if(!QueryFullProcessImageName(handle,0,path,ref capacity))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"无法读取游戏文件路径。");
+  string fileName=path.ToString();if(!String.Equals(Path.GetFileName(fileName),"elementclient.exe",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("只支持elementclient.exe。");
+  string hash;using(FileStream f=File.OpenRead(fileName))using(SHA256 sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(f)).Replace("-","").ToLowerInvariant();
   if(hash!=SupportedHash)throw new InvalidOperationException("当前主程序版本不在已适配范围，未读取其他版本。");
-  handle=OpenProcess(0x0410,false,pid);if(handle==IntPtr.Zero)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"无法只读连接游戏。");long c,e,k,u;if(!GetProcessTimes(handle,out c,out e,out k,out u)||DateTime.FromFileTimeUtc(c).Ticks!=ticks||e!=0)throw new InvalidOperationException("游戏进程已变化。");
+  long imageBase=PreferredBase(fileName);
+  lock(job.Sync)job.Data.State="读取角色名字入口";
   long root=imageBase+NameRootRva;uint namePointer=unchecked((uint)ReadInt(handle,root));if(namePointer<65536||namePointer>0x7ffeff00)throw new InvalidOperationException("角色名字入口尚未就绪，请先进入游戏。");
   string name=ReadName(handle,namePointer);byte[] pattern=Encoding.Unicode.GetBytes(name);List<long> names=new List<long>();names.Add(namePointer);
   lock(job.Sync)job.Data.State="自动定位角色名字";
@@ -84,5 +103,5 @@ public static class PWAutoRoleConnector {
   if(matches.Count!=1)throw new InvalidOperationException("未找到唯一角色数据。自动扫描有30秒/512MB分阶段上限，未使用猜测地址。");
   var result=matches[0];using(PWStatsReader reader=PWStatsReader.Open(pid,ticks,name,result.NamePointer,result.NameAddress,result.HpAddresses,result.MpAddresses)){var sample=reader.Read();if(!PlausibleStats(sample.HpA,sample.MpA,sample.HpB,sample.MpB))throw new InvalidOperationException("角色数据在连接过程中发生变化。");}
   lock(job.Sync){job.Data.Result=result;job.Data.State="已连接";}
- }catch(OperationCanceledException){lock(job.Sync)job.Data.State="已取消";}catch(Exception ex){lock(job.Sync){job.Data.State="失败";job.Data.Error=ex.Message;}}finally{if(handle!=IntPtr.Zero)CloseHandle(handle);}}
+ }catch(OperationCanceledException){lock(job.Sync)job.Data.State="已取消";}catch(Exception ex){lock(job.Sync){string stage=job.Data.State;job.Data.State="失败";job.Data.Error="步骤："+stage+"；"+ex.Message;}}finally{if(handle!=IntPtr.Zero)CloseHandle(handle);}}
 }
