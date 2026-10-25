@@ -64,10 +64,23 @@ public static class PWAutoRoleConnector {
   }
  }
  public static bool PlausibleStats(int hp,int mp,int maxHp,int maxMp){return hp>=0&&mp>=0&&maxHp>0&&maxMp>0&&maxHp<=1000000000&&maxMp<=1000000000&&hp<=maxHp&&mp<=maxMp;}
- public static PWAutoRoleJob Start(int pid){if(pid<=0)throw new ArgumentException("游戏进程无效。");PWAutoRoleJob job=new PWAutoRoleJob();Thread t=new Thread(delegate(){Locate(job,pid);});t.IsBackground=true;t.Start();return job;}
+ public static PWAutoRoleJob Start(int pid){return Start(pid,null);}
+ public static PWAutoRoleJob Start(int pid,string nameHint){if(pid<=0)throw new ArgumentException("游戏进程无效。");if(!String.IsNullOrEmpty(nameHint)&&!ValidName(nameHint))throw new ArgumentException("保存的角色名无效。");PWAutoRoleJob job=new PWAutoRoleJob();Thread t=new Thread(delegate(){Locate(job,pid,nameHint);});t.IsBackground=true;t.Start();return job;}
  static byte[] Read(IntPtr h,long a,int size,out int got){byte[] b=new byte[size];UIntPtr n;ReadProcessMemory(h,new IntPtr(a),b,new UIntPtr((uint)size),out n);got=(int)Math.Min((ulong)size,n.ToUInt64());return b;}
  static int ReadInt(IntPtr h,long a){int n;byte[] b=Read(h,a,4,out n);if(n!=4)throw new InvalidOperationException("角色字段无法读取：0x"+a.ToString("X")+"，需要4字节，实际"+n+"，Windows错误"+Marshal.GetLastWin32Error()+"。");return BitConverter.ToInt32(b,0);}
- static string ReadName(IntPtr h,long a){StringBuilder s=new StringBuilder();for(int i=0;i<=32;i++){int n;byte[] b=Read(h,a+i*2,2,out n);if(n!=2)throw new InvalidOperationException("名字无法读取。");char c=(char)BitConverter.ToUInt16(b,0);if(c==0){if(s.Length<2)throw new InvalidOperationException("请先进入游戏角色。");return s.ToString();}if(Char.IsControl(c))throw new InvalidOperationException("名字字段与适配版本不符。");s.Append(c);}throw new InvalidOperationException("名字字段未通过长度校验。");}
+ public static bool ValidName(string s){if(String.IsNullOrWhiteSpace(s)||s.Length<2||s.Length>32)return false;foreach(char c in s)if(Char.IsControl(c)||c=='\0')return false;return true;}
+ public static string DecodeNameBuffer(byte[] bytes,int count,int prefix){
+  if(bytes==null||count<0||count>bytes.Length)throw new ArgumentException();
+  // Accept a length interpretation only when it is unique; do not guess between different names.
+  List<string> options=new List<string>();
+  if(prefix>=2&&prefix<=64&&prefix%2==0&&prefix<=count){string value=Encoding.Unicode.GetString(bytes,0,prefix);if(ValidName(value))options.Add(value);}
+  if(prefix>=2&&prefix<=32&&prefix*2<=count){string value=Encoding.Unicode.GetString(bytes,0,prefix*2);if(ValidName(value)&&!options.Contains(value))options.Add(value);}
+  if(options.Count==1)return options[0];
+  if(options.Count>1)throw new InvalidOperationException("名字长度解释不唯一，请使用本机已记录的角色名。");
+  StringBuilder text=new StringBuilder();for(int i=0;i+2<=count;i+=2){char c=(char)BitConverter.ToUInt16(bytes,i);if(c==0){string value=text.ToString();if(ValidName(value))return value;break;}if(Char.IsControl(c))break;text.Append(c);if(text.Length>32)break;}
+  throw new InvalidOperationException("名字长度或结束标志无效；该引用未确认可用作固定名字入口。");
+ }
+ static string ReadName(IntPtr h,long a){int prefix=0,n;byte[] length=Read(h,a-4,4,out n);if(n==4)prefix=BitConverter.ToInt32(length,0);byte[] bytes=Read(h,a,64,out n);return DecodeNameBuffer(bytes,n,prefix);}
  public static int[] FindName(byte[] b,int n,byte[] p){int[] skip=new int[256];for(int i=0;i<256;i++)skip[i]=p.Length;for(int i=0;i<p.Length-1;i++)skip[p[i]]=p.Length-1-i;List<int> hits=new List<int>();for(int i=0;i<=n-p.Length;){int j=p.Length-1;while(j>=0&&b[i+j]==p[j])j--;if(j<0){hits.Add(i);i++;}else i+=skip[b[i+p.Length-1]];}return hits.ToArray();}
  static void Walk(IntPtr handle,PWAutoRoleJob job,Action<long,byte[],int> visit){long cursor=65536,total=0;Stopwatch clock=Stopwatch.StartNew();while(cursor<0x7fff0000L){
   if(job.Cancelled)throw new OperationCanceledException();if(clock.ElapsedMilliseconds>30000||total>=536870912)break;
@@ -77,7 +90,7 @@ public static class PWAutoRoleConnector {
    for(long a=Math.Max(cursor,begin);a<end;){if(job.Cancelled)throw new OperationCanceledException();if(clock.ElapsedMilliseconds>30000||total>=536870912)break;int sizeRead=(int)Math.Min(262144,Math.Min(end-a,536870912-total)),n;byte[] b=Read(handle,a,sizeRead,out n);total+=sizeRead;visit(a,b,n);a+=sizeRead;lock(job.Sync)job.Data.BytesRead+=n;}
   }cursor=end;
  }}
- static void Locate(PWAutoRoleJob job,int pid){IntPtr handle=IntPtr.Zero;try{
+ static void Locate(PWAutoRoleJob job,int pid,string nameHint){IntPtr handle=IntPtr.Zero;try{
   lock(job.Sync)job.Data.State="打开只读连接";
   handle=OpenProcess(0x0410,false,pid);if(handle==IntPtr.Zero)throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(),"无法只读连接游戏。");
   long c,e,k,u;if(!GetProcessTimes(handle,out c,out e,out k,out u)||e!=0)throw new InvalidOperationException("游戏进程已退出或无法读取启动时间。");long ticks=DateTime.FromFileTimeUtc(c).Ticks;
@@ -88,11 +101,16 @@ public static class PWAutoRoleConnector {
   if(hash!=SupportedHash)throw new InvalidOperationException("当前主程序版本不在已适配范围，未读取其他版本。");
   long imageBase=PreferredBase(fileName);
   lock(job.Sync)job.Data.State="读取角色名字入口";
-  long root=imageBase+NameRootRva;uint namePointer=unchecked((uint)ReadInt(handle,root));if(namePointer<65536||namePointer>0x7ffeff00)throw new InvalidOperationException("角色名字入口尚未就绪，请先进入游戏。");
-  string name=ReadName(handle,namePointer);byte[] pattern=Encoding.Unicode.GetBytes(name);List<long> names=new List<long>();names.Add(namePointer);
+  long root=imageBase+NameRootRva;uint namePointer=0;string name=nameHint;
+  if(String.IsNullOrEmpty(name)){
+   namePointer=unchecked((uint)ReadInt(handle,root));if(namePointer<65536||namePointer>0x7ffeff00)throw new InvalidOperationException("角色名字入口尚未就绪，请先进入游戏。");name=ReadName(handle,namePointer);
+  }
+  byte[] pattern=Encoding.Unicode.GetBytes(name);List<long> names=new List<long>();
+  if(namePointer!=0)names.Add(namePointer);
   lock(job.Sync)job.Data.State="自动定位角色名字";
   byte[] tail=new byte[0];long next=-1;
   Walk(handle,job,delegate(long a,byte[] b,int n){if(a!=next)tail=new byte[0];if(n==0){tail=new byte[0];next=-1;return;}byte[] joined=new byte[tail.Length+n];Buffer.BlockCopy(tail,0,joined,0,tail.Length);Buffer.BlockCopy(b,0,joined,tail.Length,n);foreach(int off in FindName(joined,joined.Length,pattern)){long at=a-tail.Length+off;if(at+pattern.Length<=a)continue;if(!names.Contains(at)){if(names.Count>=64)throw new InvalidOperationException("角色名候选过多，无法唯一连接。");names.Add(at);}}int keep=Math.Min(pattern.Length-1,joined.Length);tail=new byte[keep];Buffer.BlockCopy(joined,joined.Length-keep,tail,0,keep);next=n==b.Length?a+n:-1;});
+  if(names.Count==0)throw new InvalidOperationException("在扫描范围内未找到已记录的角色名；请确认当前角色名字。扫描不完整时也可能没有结果。");
   Dictionary<uint,bool> wanted=new Dictionary<uint,bool>();foreach(long a in names)wanted[(uint)a]=true;List<PWAutoRoleInfo> matches=new List<PWAutoRoleInfo>();lock(job.Sync)job.Data.State="自动定位生命与真气";
   Walk(handle,job,delegate(long a,byte[] b,int n){int align=(int)((4-(a&3))&3);for(int i=align;i+4<=n;i+=4){uint value=BitConverter.ToUInt32(b,i);if(!wanted.ContainsKey(value))continue;long field=a+i;if(field<65536-HpRelative)continue;
    try{int hp=ReadInt(handle,field+HpRelative),mp=ReadInt(handle,field+MpRelative),maxHp=ReadInt(handle,field+MaxHpRelative),maxMp=ReadInt(handle,field+MaxMpRelative);if(!PlausibleStats(hp,mp,maxHp,maxMp))continue;int read;byte[] exact=Read(handle,value,pattern.Length,out read);if(read!=pattern.Length||!PWStatsReader.ExactName(exact,name))continue;

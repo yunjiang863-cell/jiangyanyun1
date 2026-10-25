@@ -9,6 +9,8 @@ $window=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
 $ui=@{};foreach($name in @('DragArea','Minimize','Close','RoleName','ConnectionState','ConnectionDot','HpBar','MpBar','HpText','MpText','Connect','Pages','Load','Save','Demo','Log','Follow','Footer')){$ui[$name]=$window.FindName($name)}
 $script:Fields=@{};$script:LiveReader=$null;$script:LiveInfo=$null;$script:AutoJob=$null;$script:Handle=[IntPtr]::Zero;$script:GameHandle=[IntPtr]::Zero;$script:ManualHidden=$false;$script:Dragging=$false
 $script:CachePath=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'PWSuite\role-session-cache.json'
+$script:NamePath=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'PWSuite\role-name.txt'
+$script:ConnectPid=0;$script:NameHint='';$script:NamePrompted=$false
 function Brush([string]$Hex){return [Windows.Media.BrushConverter]::new().ConvertFromString($Hex)}
 function Log([string]$Text){if($ui.Log.Text.Length -gt 45000){$ui.Log.Clear()};$ui.Log.AppendText(('['+(Get-Date -Format 'HH:mm:ss')+'] '+$Text+[Environment]::NewLine));$ui.Log.ScrollToEnd()}
 function Label($Parent,[string]$Text,[bool]$Hint=$false){$t=New-Object Windows.Controls.TextBlock;$t.Text=$Text;if($Hint){$t.Style=$window.Resources['Hint']}else{$t.Margin='0,0,0,8';$t.Foreground=Brush '#CFD8E5'};[void]$Parent.Children.Add($t);return $t}
@@ -100,14 +102,67 @@ function Open-LiveInfo($info){
 }
 function Update-LiveDisplay($v){$ui.RoleName.Text=$v.Name;$ui.HpText.Text='HP  '+$v.HpA+' / '+$v.HpB;$ui.MpText.Text='MP  '+$v.MpA+' / '+$v.MpB;$ui.HpBar.Value=100.0*$v.HpA/$v.HpB;$ui.MpBar.Value=100.0*$v.MpA/$v.MpB}
 function Save-SessionCache($info){try{[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($script:CachePath));$json=[pscustomobject]@{Version=1;Info=$info}|ConvertTo-Json -Depth 8;[IO.File]::WriteAllText($script:CachePath,$json,[Text.Encoding]::UTF8)}catch{Log '已连接，本地缓存未能保存。'}}
+function Convert-ReferenceInfo($r){
+ if($null -eq $r -or $r.Error -or $r.ProcessId -le 0 -or $r.ProcessStartTicks -le 0 -or -not [PWAutoRoleConnector]::ValidName([string]$r.Name)){throw '本地报告无有效角色信息。'}
+ $matches=@($r.References|Where-Object{$_.Score -eq 2 -and @($_.HpValueMatches).Count -eq 2 -and @($_.MpValueMatches).Count -eq 2})
+ if($matches.Count -ne 1){throw '本地报告未给出唯一角色字段候选。'}
+ $m=$matches[0];[long[]]$hp=@($m.HpValueMatches|Sort-Object);[long[]]$mp=@($m.MpValueMatches|Sort-Object)
+ [PWStatsReader]::ValidateLayout([long]$m.Address,[long]$m.NameAddress,$hp,$mp)
+ return [pscustomobject]@{ProcessId=[int]$r.ProcessId;StartTicks=[long]$r.ProcessStartTicks;Name=[string]$r.Name;Sha256='2f7f098806d965fea21d4206a201868d3e897b3dfd91c97caf93b28e91df1b3f';NamePointer=[long]$m.Address;NameAddress=[long]$m.NameAddress;HpAddresses=$hp;MpAddresses=$mp}
+}
+function Save-NameHint([string]$name){
+ if(-not [PWAutoRoleConnector]::ValidName($name)){return}
+ $script:NameHint=$name
+ try{[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($script:NamePath));[IO.File]::WriteAllText($script:NamePath,$name,[Text.Encoding]::UTF8)}catch{}
+}
+function Find-LocalReferenceReports {
+ $dirs=@($PSScriptRoot,[Environment]::GetFolderPath('DesktopDirectory'),[Environment]::GetFolderPath('MyDocuments'),(Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Downloads'))|Where-Object{$_}|Select-Object -Unique
+ $files=@();foreach($dir in $dirs){$files+=@(Get-ChildItem -LiteralPath $dir -Filter 'role-reference-report*.json' -File -ErrorAction SilentlyContinue|Where-Object{$_.Length -le 262144})}
+ return @($files|Sort-Object LastWriteTime -Descending|Select-Object -First 8)
+}
+function Ask-RoleName {
+ $dialog=New-Object Windows.Window;$dialog.Title='一次性记录角色名';$dialog.Width=420;$dialog.Height=225;$dialog.ResizeMode='NoResize';$dialog.Owner=$window;$dialog.WindowStartupLocation='CenterOwner';$dialog.Background=Brush '#171E29';$dialog.Foreground=Brush '#E6E9EF';$dialog.FontFamily='Microsoft YaHei UI'
+ $panel=New-Object Windows.Controls.StackPanel;$panel.Margin=20;$dialog.Content=$panel
+ $hint=New-Object Windows.Controls.TextBlock;$hint.Text='自动名字入口不可用。填写一次准确角色名即可继续定位，以后从本机缓存读取，无需报告文件。';$hint.TextWrapping='Wrap';$hint.Margin='0,0,0,12';[void]$panel.Children.Add($hint)
+ $box=New-Object Windows.Controls.TextBox;$box.Style=$window.Resources[[Windows.Controls.TextBox]];$box.Text=$script:NameHint;[void]$panel.Children.Add($box)
+ $ok=New-Object Windows.Controls.Button;$ok.Style=$window.Resources['Primary'];$ok.Content='记录并连接';$ok.Margin='0,12,0,0';$ok.Add_Click({if([PWAutoRoleConnector]::ValidName($box.Text.Trim())){$dialog.DialogResult=$true}}.GetNewClosure());[void]$panel.Children.Add($ok)
+ if($dialog.ShowDialog()){return $box.Text.Trim()};return ''
+}
+function Begin-AutoConnection([int]$GamePid){
+ $script:AutoJob=[PWAutoRoleConnector]::Start($GamePid,[string]$script:NameHint);$ui.Connect.Content='取消';$ui.ConnectionState.Text='  定位中';Log '自动定位角色数据，无需加载文件。'
+}
+$connectMenu=New-Object Windows.Controls.ContextMenu;$connectMenu.Background=Brush '#182331';$connectMenu.Foreground=Brush '#E4E9F0';$connectMenu.BorderBrush=Brush '#465369'
+$editName=New-Object Windows.Controls.MenuItem;$editName.Header='修改本机角色名';$editName.Add_Click({$name=Ask-RoleName;if($name){Disconnect-Live '角色名已更新，请重新点击连接';Save-NameHint $name}});[void]$connectMenu.Items.Add($editName)
+$ui.Connect.ContextMenu=$connectMenu;$ui.Connect.ToolTip='点击自动连接；右键可修改本机保存的角色名。'
 $ui.Connect.Add_Click({try{
- if($script:AutoJob){Disconnect-Live '已取消连接';return};$selected=Select-GamePid;if(-not $selected){return};Disconnect-Live '正在连接游戏'
- if(Test-Path -LiteralPath $script:CachePath){try{$cache=Get-Content -LiteralPath $script:CachePath -Raw -Encoding UTF8|ConvertFrom-Json;if($cache.Version -eq 1 -and $cache.Info.ProcessId -eq $selected -and $cache.Info.Sha256 -eq '2f7f098806d965fea21d4206a201868d3e897b3dfd91c97caf93b28e91df1b3f'){Open-LiveInfo $cache.Info;Log '已复用本机当前会话缓存。';return}}catch{if($script:LiveReader){$script:LiveReader.Dispose();$script:LiveReader=$null};Log '旧缓存失效，自动重新定位。'}}
- $script:AutoJob=[PWAutoRoleConnector]::Start($selected);$ui.Connect.Content='取消';$ui.ConnectionState.Text='  定位中';Log '自动定位角色数据，无需加载文件。'
+ if($script:AutoJob){Disconnect-Live '已取消连接';return};$selected=Select-GamePid;if(-not $selected){return};Disconnect-Live '正在连接游戏';$script:ConnectPid=$selected;$script:NamePrompted=$false;$script:NameHint=''
+ if(Test-Path -LiteralPath $script:NamePath){try{$hint=[IO.File]::ReadAllText($script:NamePath).Trim();if([PWAutoRoleConnector]::ValidName($hint)){$script:NameHint=$hint}}catch{}}
+ if(Test-Path -LiteralPath $script:CachePath){try{
+  $cache=Get-Content -LiteralPath $script:CachePath -Raw -Encoding UTF8|ConvertFrom-Json
+  if($cache.Version -eq 1 -and $cache.Info.Sha256 -eq '2f7f098806d965fea21d4206a201868d3e897b3dfd91c97caf93b28e91df1b3f'){
+   if(-not $script:NameHint){Save-NameHint ([string]$cache.Info.Name)}
+   if($cache.Info.ProcessId -eq $selected -and (-not $script:NameHint -or $cache.Info.Name -ceq $script:NameHint)){Open-LiveInfo $cache.Info;Log '已复用本机当前会话缓存。';return}
+  }
+ }catch{if($script:LiveReader){$script:LiveReader.Dispose();$script:LiveReader=$null};Log '旧地址失效，保留角色名自动重新定位。'}}
+ foreach($file in @(Find-LocalReferenceReports)){
+  try{
+   $report=Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8|ConvertFrom-Json
+   if($script:NameHint -and [string]$report.Name -cne $script:NameHint){continue}
+   if(-not $script:NameHint -and [PWAutoRoleConnector]::ValidName([string]$report.Name)){Save-NameHint ([string]$report.Name)}
+   $info=Convert-ReferenceInfo $report
+   if($info.ProcessId -ne $selected){continue}
+   Open-LiveInfo $info;Save-SessionCache $info;Save-NameHint $info.Name;Log '已自动迁移本机已有报告并连接；以后直接复用会话缓存。';return
+  }catch{if($script:LiveReader){$script:LiveReader.Dispose();$script:LiveReader=$null}}
+ }
+ Begin-AutoConnection $selected
 }catch{Disconnect-Live $_.Exception.Message}})
 $liveTimer=New-Object Windows.Threading.DispatcherTimer;$liveTimer.Interval=[TimeSpan]::FromMilliseconds(400)
 $liveTimer.Add_Tick({
- if($script:AutoJob){$p=$script:AutoJob.GetProgress();$ui.RoleName.Text=$p.State;$ui.ConnectionState.Text='  '+[Math]::Round($p.BytesRead/1MB,0)+'MB';if($p.State -eq '已连接'){try{$info=$p.Result;$script:AutoJob=$null;Open-LiveInfo $info;Save-SessionCache $info;Log '已自动连接。'}catch{Disconnect-Live $_.Exception.Message}}elseif($p.State -in @('失败','已取消')){Disconnect-Live ($p.State+' '+$p.Error)};return}
+ if($script:AutoJob){$p=$script:AutoJob.GetProgress();$ui.RoleName.Text=$p.State;$ui.ConnectionState.Text='  '+[Math]::Round($p.BytesRead/1MB,0)+'MB';if($p.State -eq '已连接'){try{$info=$p.Result;$script:AutoJob=$null;Open-LiveInfo $info;Save-SessionCache $info;Save-NameHint $info.Name;Log '已自动连接。'}catch{Disconnect-Live $_.Exception.Message}}elseif($p.State -in @('失败','已取消')){
+  $canAsk=($p.State -eq '失败' -and -not $script:NameHint -and -not $script:NamePrompted -and $p.Error -match '名字|角色名')
+  Disconnect-Live ($p.State+' '+$p.Error)
+  if($canAsk){$script:NamePrompted=$true;$name=Ask-RoleName;if($name){Save-NameHint $name;Begin-AutoConnection $script:ConnectPid}}
+ };return}
  if(-not $script:LiveReader){return};try{$v=$script:LiveReader.Read();if(-not [PWAutoRoleConnector]::PlausibleStats($v.HpA,$v.MpA,$v.HpB,$v.MpB)){throw '角色数值关系异常。'};Update-LiveDisplay $v}catch{Disconnect-Live $_.Exception.Message}
 })
 $followTimer=New-Object Windows.Threading.DispatcherTimer;$followTimer.Interval=[TimeSpan]::FromMilliseconds(100)
