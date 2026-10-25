@@ -6,9 +6,9 @@ try {
  Add-Type -Path (Join-Path $PSScriptRoot 'Native.cs')
 } catch {Write-Host $_.Exception.Message;Read-Host '启动失败，按回车关闭';exit 1}
 [Windows.Forms.Application]::EnableVisualStyles()
-$script:Bound=$null;$script:Running=$false;$script:Schedule=@();$script:NextTap=0
+$script:Bound=$null;$script:Running=$false;$script:Pending=$false;$script:PendingDeadline=0;$script:StartConfig=$null;$script:Schedule=@();$script:NextTap=0
 $clock=[Diagnostics.Stopwatch]::StartNew()
-$form=New-Object Windows.Forms.Form;$form.Text='完美按键辅助 v0.2 · 测试版';$form.Size=New-Object Drawing.Size(1000,740);$form.MinimumSize=$form.Size;$form.StartPosition='CenterScreen'
+$form=New-Object Windows.Forms.Form;$form.Text='完美按键辅助 v0.2.1 · 手动切回游戏版';$form.Size=New-Object Drawing.Size(1000,740);$form.MinimumSize=$form.Size;$form.StartPosition='CenterScreen'
 function Label([string]$Text,[int]$X,[int]$Y,[int]$W,[int]$H=30){$l=New-Object Windows.Forms.Label;$l.Text=$Text;$l.SetBounds($X,$Y,$W,$H);$form.Controls.Add($l);return $l}
 [void](Label '普通按键版：循环选怪、技能和拾取；仅在绑定的游戏窗口处于前台时操作。F9 紧急停止。' 15 15 950 30)
 [void](Label '尚未实现：自动读取血量、死亡、背包、怪物名称。使用默认配置前请核对游戏快捷键。' 15 45 950 35)
@@ -25,7 +25,7 @@ foreach($col in $grid.Columns){$col.SortMode='NotSortable'}
 $grid.Columns['Name'].ReadOnly=$true
 $log=New-Object Windows.Forms.TextBox;$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(15,495,955,175);$log.Anchor='Top,Bottom,Left,Right';$form.Controls.Add($log)
 function Log([string]$Text){if($log.TextLength -gt 60000){$log.Clear()};$log.AppendText(('['+(Get-Date -Format 'HH:mm:ss')+'] '+$Text+[Environment]::NewLine))}
-function Stop-Run([string]$Reason){$wasRunning=$script:Running;$script:Running=$false;$grid.Enabled=$true;$windows.Enabled=$true;$refresh.Enabled=$true;$bind.Enabled=$true;$state.Text='已停止/暂停：'+$Reason;if($wasRunning){Log $Reason}}
+function Stop-Run([string]$Reason){$wasRunning=($script:Running -or $script:Pending);$script:Running=$false;$script:Pending=$false;$grid.Enabled=$true;$windows.Enabled=$true;$refresh.Enabled=$true;$bind.Enabled=$true;$state.Text='已停止/暂停：'+$Reason;if($wasRunning){Log $Reason}}
 function Display-Config($c){
  Assert-KeyConfig $c
  $grid.Rows.Clear()
@@ -42,7 +42,7 @@ function Refresh-Windows {
  if($windows.Items.Count){$windows.SelectedIndex=0};Log ('发现 '+$windows.Items.Count+' 个游戏窗口。')
 }
 $refresh.Add_Click({try{Refresh-Windows}catch{Log $_.Exception.Message}})
-$bind.Add_Click({try{Stop-Run '更换绑定';if($null -eq $windows.SelectedItem){throw '请先启动游戏并刷新列表。'};$script:Bound=$windows.SelectedItem;$state.Text='已绑定：'+$script:Bound.Label+'；点击开始后将切到该游戏。';Log $state.Text}catch{Log $_.Exception.Message}})
+$bind.Add_Click({try{Stop-Run '更换绑定';if($null -eq $windows.SelectedItem){throw '请先启动游戏并刷新列表。'};$script:Bound=$windows.SelectedItem;$state.Text='已绑定：'+$script:Bound.Label+'；点击开始后，请在30秒内手动切回游戏。';Log $state.Text}catch{Log $_.Exception.Message}})
 function Add-Button([string]$Text,[int]$X,[int]$Width,[scriptblock]$Click){$b=New-Object Windows.Forms.Button;$b.Text=$Text;$b.SetBounds($X,445,$Width,32);$b.Add_Click($Click);$form.Controls.Add($b);return $b}
 $start=Add-Button '开始 / 重新开始' 15 165 {
  try {
@@ -50,13 +50,11 @@ $start=Add-Button '开始 / 重新开始' 15 165 {
   if($null -eq $script:Bound){throw '请先绑定游戏窗口。'}
   $p=Get-Process -Id $script:Bound.PidValue -ErrorAction Stop
   if($p.StartTime.ToUniversalTime().Ticks -ne $script:Bound.StartTicks -or $p.MainWindowHandle -ne $script:Bound.HandleValue){throw '游戏窗口或进程已变化，请重新绑定。'}
-  $c=Read-Config;$script:Schedule=@(New-KeySchedule $c $clock.ElapsedMilliseconds)
-  [void][PWKeyNative]::ShowWindow($script:Bound.HandleValue,9)
-  [void][PWKeyNative]::SetForegroundWindow($script:Bound.HandleValue)
-  if([PWKeyNative]::GetForegroundWindow() -ne $script:Bound.HandleValue){throw '未能切换到游戏前台，未启动。'}
-  $script:Running=$true;$script:NextTap=$clock.ElapsedMilliseconds+500
+  $script:StartConfig=Read-Config
+  $script:Pending=$true;$script:PendingDeadline=$clock.ElapsedMilliseconds+30000
   $grid.Enabled=$false;$windows.Enabled=$false;$refresh.Enabled=$false;$bind.Enabled=$false
-  $state.Text='运行中：'+$script:Bound.Label+'；切到其他窗口会暂停，F9 停止。';Log '开始循环按键；首次操作延迟500毫秒。'
+  $state.Text='等待切回游戏：请在30秒内点击游戏窗口或用Alt+Tab切回；F9取消。'
+  Log '等待手动切回绑定游戏；当前不会发送按键。'
  } catch {Stop-Run $_.Exception.Message;Log $_.Exception.Message}
 }
 $stop=Add-Button '停止（F9）' 195 145 {Stop-Run '手动停止'}
@@ -73,11 +71,23 @@ $timer=New-Object Windows.Forms.Timer;$timer.Interval=50
 $timer.Add_Tick({
  try {
   if([PWKeyNative]::IsF9Down()){Stop-Run 'F9紧急停止';return}
-  if(-not $script:Running){return}
+  if(-not $script:Running -and -not $script:Pending){return}
   if($null -eq $script:Bound -or -not [PWKeyNative]::IsWindow($script:Bound.HandleValue)){Stop-Run '游戏窗口关闭';return}
-  if([PWKeyNative]::GetForegroundWindow() -ne $script:Bound.HandleValue -or [PWKeyNative]::IsIconic($script:Bound.HandleValue)){Stop-Run '游戏失去焦点或最小化，请确认后重新开始';return}
   $p=Get-Process -Id $script:Bound.PidValue -ErrorAction Stop
-  if($p.StartTime.ToUniversalTime().Ticks -ne $script:Bound.StartTicks){Stop-Run '游戏进程已变化';return}
+  if($p.StartTime.ToUniversalTime().Ticks -ne $script:Bound.StartTicks -or $p.MainWindowHandle -ne $script:Bound.HandleValue){Stop-Run '游戏进程或窗口已变化';return}
+  $focused=([PWKeyNative]::GetForegroundWindow() -eq $script:Bound.HandleValue -and -not [PWKeyNative]::IsIconic($script:Bound.HandleValue))
+  if($script:Pending){
+   $decision=Get-ActivationDecision $focused $clock.ElapsedMilliseconds $script:PendingDeadline
+   if($decision -eq 'Timeout'){Stop-Run '等待30秒超时，请重新开始后切回游戏';return}
+   if($decision -ne 'Ready'){return}
+   $script:Pending=$false;$script:Running=$true
+   $script:Schedule=@(New-KeySchedule $script:StartConfig $clock.ElapsedMilliseconds)
+   $script:NextTap=$clock.ElapsedMilliseconds+500
+   $state.Text='运行中：'+$script:Bound.Label+'；切到其他窗口会暂停，F9停止。'
+   Log '已确认游戏处于前台，500毫秒后开始按键。'
+   return
+  }
+  if(-not $focused){Stop-Run '游戏失去焦点或最小化，请确认后重新开始';return}
   if($clock.ElapsedMilliseconds -lt $script:NextTap){return}
   $action=Get-DueKey $script:Schedule $clock.ElapsedMilliseconds
   if($null -eq $action){return}
@@ -86,5 +96,5 @@ $timer.Add_Tick({
   Log ('已发送按键：'+$action.Key+'（'+$action.Name+'）')
  } catch {Stop-Run ('运行异常：'+$_.Exception.Message)}
 })
-$form.Add_FormClosing({$script:Running=$false;$timer.Stop()})
+$form.Add_FormClosing({$script:Running=$false;$script:Pending=$false;$timer.Stop()})
 try{Display-Config (Get-Content (Join-Path $PSScriptRoot 'default-config.json') -Raw -Encoding UTF8|ConvertFrom-Json);Refresh-Windows;$timer.Start();[void]$form.ShowDialog()}finally{$timer.Stop();$timer.Dispose();$form.Dispose()}
