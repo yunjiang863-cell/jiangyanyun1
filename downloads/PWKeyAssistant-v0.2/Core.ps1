@@ -35,3 +35,9 @@ function Get-DueKey($Schedule,[long]$NowMs){
     if($due.Count){$a=$due[0];$a.DueMs=$NowMs+$a.IntervalMs;return $a}
     return $null
 }
+
+function Get-ActivationDecision([bool]$Focused,[long]$NowMs,[long]$DeadlineMs){
+    if($NowMs -ge $DeadlineMs){return 'Timeout'}
+    if($Focused){return 'Ready'}
+    return 'Waiting'
+}
