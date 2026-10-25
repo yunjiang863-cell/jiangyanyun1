@@ -3,9 +3,11 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -Path (Join-Path $PSScriptRoot 'Skin.cs') -ReferencedAssemblies System.Windows.Forms,System.Drawing
+Add-Type -Path (Join-Path $PSScriptRoot 'StatsReader.cs')
+$script:LiveReader=$null;$script:LiveInfo=$null
 [Windows.Forms.Application]::EnableVisualStyles()
 $script:Fields=@{};$script:Config=New-SuiteConfig
-$form=New-Object Windows.Forms.Form;$form.Text='山海助手 v0.3 · 六页规则版';$form.ClientSize=New-Object Drawing.Size(410,720);$form.FormBorderStyle='FixedSingle';$form.MaximizeBox=$false;$form.StartPosition='CenterScreen';$form.Font=New-Object Drawing.Font('Microsoft YaHei',9)
+$form=New-Object Windows.Forms.Form;$form.Text='山海助手 v0.3.1 · 当前会话角色读取';$form.ClientSize=New-Object Drawing.Size(410,750);$form.FormBorderStyle='FixedSingle';$form.MaximizeBox=$false;$form.StartPosition='CenterScreen';$form.Font=New-Object Drawing.Font('Microsoft YaHei',9)
 $bg=New-Object SuiteBackdrop;$bg.Dock='Fill';$form.Controls.Add($bg)
 $gold=[Drawing.Color]::FromArgb(255,224,122);$light=[Drawing.Color]::FromArgb(225,232,244);$purple=[Drawing.Color]::FromArgb(225,112,255)
 function Text($Parent,[string]$Value,[int]$X,[int]$Y,[int]$W=350,[int]$H=25){$l=New-Object Windows.Forms.Label;$l.Text=$Value;$l.SetBounds($X,$Y,$W,$H);$l.ForeColor=$gold;$l.BackColor=[Drawing.Color]::Transparent;$Parent.Controls.Add($l);return $l}
@@ -24,8 +26,8 @@ function Names($Parent,[string]$Path,[int]$X,[int]$Y,[int]$W,[int]$H){
 }
 $brand=Text $bg '山 海 助 手' 10 7 390 31;$brand.Font=New-Object Drawing.Font('Microsoft YaHei',17,[Drawing.FontStyle]::Bold);$brand.TextAlign='MiddleCenter'
 $top=New-Object Windows.Forms.CheckBox;$top.Text='置顶';$top.ForeColor=$gold;$top.SetBounds(335,43,65,25);$top.BackColor=[Drawing.Color]::Transparent;$top.Add_CheckedChanged({$form.TopMost=$top.Checked});$bg.Controls.Add($top)
-$connection=Text $bg '角色实时数据：未连接' 12 45 310 25
-$tabs=New-Object GoldTabs;$tabs.SetBounds(10,78,390,443);$bg.Controls.Add($tabs)
+$connection=Text $bg '角色实时数据：未连接' 12 43 260 55
+$tabs=New-Object GoldTabs;$tabs.SetBounds(10,105,390,443);$bg.Controls.Add($tabs)
 $pages=@{}
 foreach($title in @('控制','保护','技能','状态','选怪','拾物')){$p=New-Object Windows.Forms.TabPage;$p.Text=$title;$p.BackColor=[Drawing.Color]::FromArgb(48,55,75);$tabs.TabPages.Add($p);$panel=New-Object SuiteBackdrop;$panel.Dock='Fill';$p.Controls.Add($panel);$pages[$title]=$panel}
 $p=$pages['控制'];[void](Text $p '挂机控制' 12 8 350);[void](Check $p '开启保护功能' 'Control.Protection' 16 43);[void](Check $p '开启自身状态保持' 'Control.Status' 16 79);[void](Check $p '开启自动拾取' 'Control.Pickup' 16 115)
@@ -66,7 +68,7 @@ $p=$pages['拾物'];[void](Text $p '拾取过滤' 12 8 350);[void](Names $p 'Pic
 [void](Choice $p 'Pickup.Mode' @('不捡列表','只捡列表') 12 275 348)
 [void](Check $p '跑去拾取（未勾选则只原地拾取）' 'Pickup.RunTo' 12 314 348)
 [void](Check $p '忽略金币' 'Pickup.IgnoreCoins' 12 350 348);[void](Check $p '启用拾取过滤' 'Pickup.Enabled' 12 385 348)
-$log=New-Object Windows.Forms.TextBox;$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(10,573,390,105);$log.BackColor=[Drawing.Color]::Black;$log.ForeColor=[Drawing.Color]::FromArgb(100,255,126);$log.Font=New-Object Drawing.Font('Consolas',9);$bg.Controls.Add($log)
+$log=New-Object Windows.Forms.TextBox;$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(10,600,390,105);$log.BackColor=[Drawing.Color]::Black;$log.ForeColor=[Drawing.Color]::FromArgb(100,255,126);$log.Font=New-Object Drawing.Font('Consolas',9);$bg.Controls.Add($log)
 function Log([string]$Value){if($log.TextLength -gt 50000){$log.Clear()};$log.AppendText(('['+(Get-Date -Format 'HH:mm:ss')+'] '+$Value+[Environment]::NewLine))}
 function Get-Value($c,[string]$Path){$x=$Path.Split('.');return $c.($x[0]).($x[1])}
 function Set-Value($c,[string]$Path,$Value){$x=$Path.Split('.');$c.($x[0]).($x[1])=$Value}
@@ -82,17 +84,48 @@ function Read-Config {
  [void]$rules.EndEdit();$entries=@();foreach($r in $rules.Rows){$entries += [pscustomobject]@{Enabled=$r.Cells['Enabled'].Value;Attribute=$r.Cells['Attribute'].Value;Type=$r.Cells['Type'].Value;Threshold=$r.Cells['Threshold'].Value;Name=$r.Cells['Name'].Value}}
  $c.Protection.Rules=$entries;Assert-SuiteConfig $c;return $c
 }
-[void](Button $bg '读取配置' 10 533 92 {
+[void](Button $bg '读取配置' 10 560 92 {
  $d=New-Object Windows.Forms.OpenFileDialog;$d.Filter='助手配置JSON|*.json';try{if($d.ShowDialog() -eq 'OK'){Show-Config (Get-Content -LiteralPath $d.FileName -Raw -Encoding UTF8|ConvertFrom-Json);Log '配置已读取。'}}catch{Log $_.Exception.Message}finally{$d.Dispose()}
 })
-[void](Button $bg '另存配置' 108 533 92 {
+[void](Button $bg '另存配置' 108 560 92 {
  $d=New-Object Windows.Forms.SaveFileDialog;$d.Filter='助手配置JSON|*.json';$d.FileName='suite-config.json';try{$c=Read-Config;if($d.ShowDialog() -eq 'OK'){if([IO.File]::Exists($d.FileName)){throw '请使用新的文件名，不覆盖原配置。'};$bytes=[Text.Encoding]::UTF8.GetBytes(($c|ConvertTo-Json -Depth 12));$f=[IO.File]::Open($d.FileName,[IO.FileMode]::CreateNew);try{$f.Write($bytes,0,$bytes.Length)}finally{$f.Dispose()};Log '已另存配置。'}}catch{Log $_.Exception.Message}finally{$d.Dispose()}
 })
-[void](Button $bg '状态演练' 206 533 92 {
+[void](Button $bg '状态演练' 206 560 92 {
  $d=New-Object Windows.Forms.OpenFileDialog;$d.Filter='离线状态JSON|*.json';try{$c=Read-Config;if($d.ShowDialog() -eq 'OK'){$snap=Get-Content -LiteralPath $d.FileName -Raw -Encoding UTF8|ConvertFrom-Json;$session=New-SuiteSession $c ([string]$snap.Role.Id);$plan=@(Get-SuitePlan $session $snap 0);Log ('状态：'+$session.State+'；'+$session.Reason);foreach($a in $plan){Log ('[未执行] '+$a.Kind+' / '+$a.Name+' / '+$a.Reason)};if(-not $plan.Count){Log '无动作建议；没有向游戏发送操作。'}}}catch{Log $_.Exception.Message}finally{$d.Dispose()}
 })
-[void](Button $bg '读取诊断' 304 533 96 {
+[void](Button $bg '读取诊断' 304 560 96 {
  $path=Join-Path $PSScriptRoot 'RoleReader\OpenRoleReader.cmd';if(Test-Path -LiteralPath $path){Start-Process -FilePath $path}else{Log '请使用已提供的RoleReader诊断器；实时适配尚未完成。'}
 })
-$foot=Text $bg 'v0.3 规则配置版 · 未连接游戏 · 不发送操作' 10 687 390 25;$foot.TextAlign='MiddleCenter';$foot.ForeColor=$light
-try{Show-Config (New-SuiteConfig);Log '六页配置已加载；运行模块等待角色数据适配。';[void]$form.ShowDialog()}finally{$form.Dispose()}
+$foot=Text $bg '角色读取待连接 · 操作接口尚未接入' 10 714 390 25;$foot.TextAlign='MiddleCenter';$foot.ForeColor=$light
+function Disconnect-Live([string]$Reason){
+ if($script:LiveReader){$script:LiveReader.Dispose();$script:LiveReader=$null}
+ $script:LiveInfo=$null;$connection.Text='角色数据：未连接';$foot.Text='角色读取停止 · 操作接口尚未接入';Log $Reason
+}
+[void](Button $bg '连接角色数据' 278 72 120 {
+ $d=New-Object Windows.Forms.OpenFileDialog;$d.Filter='第二步引用报告|*.json'
+ try{
+  if($d.ShowDialog() -ne 'OK'){return}
+  $r=Get-Content -LiteralPath $d.FileName -Raw -Encoding UTF8|ConvertFrom-Json
+  if($r.Error){throw '该报告包含诊断错误。'}
+  $candidates=@($r.References|Where-Object{$_.Score -eq 2 -and @($_.HpValueMatches).Count -eq 2 -and @($_.MpValueMatches).Count -eq 2})
+  if($candidates.Count -ne 1){throw '报告中没有唯一的两组生命/真气候选，不能直接连接。'}
+  $candidate=$candidates[0];[long[]]$hpAddress=@($candidate.HpValueMatches|Sort-Object);[long[]]$mpAddress=@($candidate.MpValueMatches|Sort-Object)
+  Disconnect-Live '切换读取会话'
+  $script:LiveReader=[PWStatsReader]::Open([int]$r.ProcessId,[long]$r.ProcessStartTicks,[string]$r.Name,[long]$candidate.Address,[long]$candidate.NameAddress,$hpAddress,$mpAddress)
+  $script:LiveInfo=[pscustomobject]@{Name=[string]$r.Name;PidValue=[int]$r.ProcessId}
+  $foot.Text='当前会话：A当前值 / B上限（按现有报告接入）'
+  Log '已连接角色数据；未写内存，未发送游戏操作。'
+ }catch{Disconnect-Live $_.Exception.Message}finally{$d.Dispose()}
+})
+$liveTimer=New-Object Windows.Forms.Timer;$liveTimer.Interval=500
+$liveTimer.Add_Tick({
+ if(-not $script:LiveReader){return}
+ try{
+  $value=$script:LiveReader.Read()
+  if($value.HpB -le 0 -or $value.MpB -le 0 -or $value.HpA -gt $value.HpB -or $value.MpA -gt $value.MpB){throw '当前值/上限关系不成立，已停止使用这组数据。'}
+  $connection.Text='角色：'+$value.Name+[Environment]::NewLine+'生命 '+$value.HpA+'/'+$value.HpB+'  真气 '+$value.MpA+'/'+$value.MpB
+ }catch{Disconnect-Live $_.Exception.Message}
+})
+$form.Add_FormClosing({$liveTimer.Stop();if($script:LiveReader){$script:LiveReader.Dispose();$script:LiveReader=$null}})
+try{Show-Config (New-SuiteConfig);Log '六页配置已加载；点击上方连接角色数据，载入已有第二步报告。';$liveTimer.Start();[void]$form.ShowDialog()}finally{$liveTimer.Stop();$liveTimer.Dispose();if($script:LiveReader){$script:LiveReader.Dispose()};$form.Dispose()}
+
