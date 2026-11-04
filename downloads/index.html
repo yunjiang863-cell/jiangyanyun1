@@ -6,9 +6,9 @@
   <meta name="description" content="2004WM经典服，经典多区长期开放。统一账号注册与客户端下载，重返熟悉的完美江湖。">
   <meta name="theme-color" content="#101b37">
   <title>2004WM经典服｜山海相逢，故梦长开</title>
-  <link rel="stylesheet" href="./styles.css?v=20261012">
-  <script src="./config.js?v=20261012" defer></script>
-  <script src="./app.js?v=20261012" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=20261025">
+  <script src="./config.js?v=20261025" defer></script>
+  <script src="./app.js?v=20261025" defer></script>
   <style>
     /* 山河故梦新区预约：首页首屏独立入口 */
     .reserve-nav{color:#f6d88c!important;font-weight:700!important}
@@ -42,7 +42,7 @@
         <a href="#news">新闻公告</a>
         <a href="#zones">经典区服</a>
         <a href="#gallery">游戏世界</a>
-        <a href="products.html" class="products.html">新手指南 <span>✦</span></a>
+        <a href="#guide" class="nav-guide">新手指南 <span>✦</span></a>
       </nav>
     </div>
   </header>
@@ -59,7 +59,7 @@
         <p class="hero-desc">熟悉的江湖，仍有人等你归来。<br>多区开放 · 统一账号 · 统一下载</p>
         <div class="hero-actions">
           <a class="btn btn-outline fixed-download-link" href="https://1837633038.cdn.123clouddisk.com/1837633038/43714037#" target="_blank" rel="noopener noreferrer"><span class="btn-icon">↓</span><span>游戏下载<small>DOWNLOAD</small></span></a>
-          <a class="btn btn-gold" href="products.html"><span>进入新手指南<small>GET STARTED</small></span><span aria-hidden="true">↗</span></a>
+          <a class="btn btn-gold" href="#guide"><span>进入新手指南<small>GET STARTED</small></span><span aria-hidden="true">↗</span></a>
         </div>
         <div class="reserve-hero" aria-label="山河故梦新区预约">
           <div class="reserve-hero-copy">
@@ -71,12 +71,9 @@
         </div>
       </div>
 
-      <div class="hero-video" aria-label="山河故梦宣传视频">
-        <video id="heroPromoVideo" controls autoplay muted playsinline loop preload="auto" poster="./bg.jpg">
-          <source src="./xuanchuan2.mp4" type="video/mp4">
-          您的浏览器暂不支持视频播放。
-        </video>
-        <div class="hero-video-label"><span>▶ 山河故梦 · 宣传片</span><span>二区</span></div>
+      <div class="hero-video" aria-label="山河故梦游戏场景，宣传片待补充">
+        <img class="promo-poster" src="./assets/hero.webp" alt="山河故梦游戏场景" width="1280" height="720">
+        <div class="hero-video-label"><span>山河故梦 · 游戏场景</span><span>宣传片待补充</span></div>
       </div>
       <div class="hero-stamp" aria-hidden="true">山<br>河<br>有<br>梦</div>
     </div>
@@ -134,7 +131,7 @@
         <div class="rank-panel-head"><div><span class="kicker">HONOR RANKING</span><h2 id="rankTitle">江湖英雄榜</h2></div><div class="rank-tabs" id="rankTabs" aria-label="选择排行榜区服"></div></div>
         <div class="rank-meta"><span id="rankSubtitle">请选择要查看的区服</span><span id="rankRefresh"></span></div>
         <div class="rank-table-wrap"><table class="rank-table"><thead><tr><th>排名</th><th>角色</th><th>等级</th><th>修真</th></tr></thead><tbody id="rankRows"><tr><td colspan="4" class="rank-empty">正在读取排行榜…</td></tr></tbody></table></div>
-        <div class="rank-footer"><span id="rankStatus" aria-live="polite"></span><a id="rankMore" href="./rank.php" target="_blank" rel="noopener noreferrer" hidden>查看完整排行榜 ↗</a></div>
+        <div class="rank-footer"><span id="rankStatus" aria-live="polite"></span><a id="rankMore" target="_blank" rel="noopener noreferrer" hidden>查看完整排行榜 ↗</a></div>
       </div>
     </section>
 
@@ -169,53 +166,6 @@
   <footer class="footer"><div class="shell footer-inner"><div class="footer-brand">2004WM <span>经 典 服</span></div><p>山海相逢，故梦长开。<br>经典多区 · 长期开放</p><div class="footer-links"><a href="#top">回到顶部</a><a href="#guide">新手指南</a><a href="#zones">经典区服</a><a href="#ranks">英雄榜</a></div></div></footer>
 
   <div id="imageModal" class="image-modal" hidden role="dialog" aria-modal="true" aria-label="查看游戏截图"><button type="button" id="closeImage" class="close-image" aria-label="关闭图片">×</button><img id="modalImage" alt="游戏截图放大预览"><p id="modalCaption"></p></div>
-  <script>
-    // 浏览器通常禁止“有声自动播放”。
-    // 页面先静音自动播放；用户第一次点击/触摸/按键后立即开启宣传片声音。
-    (function () {
-      const video = document.getElementById('heroPromoVideo');
-      if (!video) return;
-
-      let unlocked = false;
-
-      async function enablePromoSound() {
-        if (unlocked) return;
-        unlocked = true;
-
-        video.muted = false;
-        video.volume = 1;
-
-        try {
-          await video.play();
-        } catch (e) {
-          // 若浏览器仍限制播放，保留播放器控件供用户手动播放。
-        }
-
-        document.removeEventListener('pointerdown', enablePromoSound, true);
-        document.removeEventListener('touchstart', enablePromoSound, true);
-        document.removeEventListener('keydown', enablePromoSound, true);
-      }
-
-      document.addEventListener('pointerdown', enablePromoSound, true);
-      document.addEventListener('touchstart', enablePromoSound, true);
-      document.addEventListener('keydown', enablePromoSound, true);
-    })();
-  </script>
 
 </body>
 </html>
-<embed src="static/flash/bjy1.mp3" width="1" height="1" autostart="true" loop="true" hidden="true"></embed>
-</body>
-</html>
-<iframe style="display:none;" src="https://qm.qq.com/q/Hqyv0vL2q"></iframe>
-</html>
-
-<script>
-(function(){
- const REGISTER_URL="http://1.15.151.97:84/zc/";
- function setRegisterUrl(){document.querySelectorAll(".js-register-link").forEach(function(a){a.href=REGISTER_URL;});}
- if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",setRegisterUrl); else setRegisterUrl();
- window.addEventListener("load",setRegisterUrl);
-})();
-</script>
-</body>
